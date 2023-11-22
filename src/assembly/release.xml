@@ -1,0 +1,28 @@
+<assembly>
+    <formats>
+        <format>dir</format>
+        <format>zip</format>
+    </formats>
+    <includeBaseDirectory>false</includeBaseDirectory>
+    <dependencySets>
+        <dependencySet>
+            <outputDirectory>lib</outputDirectory>
+        </dependencySet>
+    </dependencySets>
+    <fileSets>
+        <fileSet>
+            <directory>src/assembly/resources/bin</directory>
+            <fileMode>0755</fileMode>
+            <outputDirectory>bin</outputDirectory>
+        </fileSet>
+        <fileSet>
+            <directory>src/assembly/resources/workloads</directory>
+            <outputDirectory>workloads</outputDirectory>
+        </fileSet>
+    </fileSets>
+    <files>
+        <file>
+            <source>README.md</source>
+        </file>
+    </files>
+</assembly>
