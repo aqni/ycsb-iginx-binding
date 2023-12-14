@@ -43,6 +43,7 @@
 CYGWIN=false
 case "$(uname)" in
 CYGWIN*) CYGWIN=true;;
+MINGW*)  CYGWIN=true;;
 esac
 
 # Get script path
@@ -103,11 +104,7 @@ if $CYGWIN; then
 fi
 
 # Core libraries
-for f in "$YCSB_HOME"/lib/*.jar ; do
-  if [ -r "$f" ] ; then
-    CLASSPATH="$CLASSPATH:$f"
-  fi
-done
+CLASSPATH="$YCSB_HOME/lib/*"
 
 # For Cygwin, switch paths to Windows format before running java
 if $CYGWIN; then

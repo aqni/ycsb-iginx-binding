@@ -94,9 +94,7 @@ FOR /F "tokens=1-2 delims=:" %%G IN ("%BINDING_LINE%") DO (
 )
 
 @REM Core libraries
-FOR %%F IN (%YCSB_HOME%\lib\*.jar) DO (
-  SET CLASSPATH=!CLASSPATH!;%%F%
-)
+SET CLASSPATH=!CLASSPATH!;%YCSB_HOME%\lib\*
 
 @REM Get the rest of the arguments, skipping the first 2
 FOR /F "tokens=2*" %%G IN ("%*") DO (

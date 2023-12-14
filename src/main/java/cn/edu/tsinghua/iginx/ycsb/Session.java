@@ -1,7 +1,6 @@
 package cn.edu.tsinghua.iginx.ycsb;
 
 import cn.edu.tsinghua.iginx.exceptions.SessionException;
-import cn.edu.tsinghua.iginx.session.Session;
 import cn.edu.tsinghua.iginx.session.SessionQueryDataSet;
 import cn.edu.tsinghua.iginx.thrift.DataType;
 import org.slf4j.Logger;
@@ -10,9 +9,9 @@ import site.ycsb.*;
 
 import java.util.*;
 
-public class Client extends DB {
+public class Session extends DB {
 
-    private static final Logger logger = LoggerFactory.getLogger(Client.class);
+    private static final Logger logger = LoggerFactory.getLogger(Session.class);
 
     public static final String HOST_PROPERTY = "iginx.host";
     public static final String HOST_PROPERTY_DEFAULT = "127.0.0.1";
@@ -23,7 +22,7 @@ public class Client extends DB {
     public static final String PASSWORD_PROPERTY = "iginx.password";
     public static final String PASSWORD_PROPERTY_DEFAULT = "root";
 
-    private Session session = null;
+    private cn.edu.tsinghua.iginx.session.Session session = null;
 
     @Override
     public void init() throws DBException {
@@ -37,7 +36,7 @@ public class Client extends DB {
         String user = getProperties().getProperty(USER_PROPERTY, USER_PROPERTY_DEFAULT);
         String password = getProperties().getProperty(PASSWORD_PROPERTY, PASSWORD_PROPERTY_DEFAULT);
 
-        this.session = new Session(host, port, user, password);
+        this.session = new cn.edu.tsinghua.iginx.session.Session(host, port, user, password);
         try {
             this.session.openSession();
         } catch (SessionException e) {
@@ -66,7 +65,7 @@ public class Client extends DB {
 
     @Override
     public Status scan(String table, String startkey, int recordcount, Set<String> fields, Vector<HashMap<String, ByteIterator>> result) {
-        long timestamp = getTimestamp(startkey);
+        long timestamp = CoreUtils.getTimestamp(startkey);
         List<String> pathList = new ArrayList<>();
         if (fields == null) {
             pathList.add(table + ".*");
@@ -84,8 +83,8 @@ public class Client extends DB {
                 List<Object> values = res.getValues().get(i);
                 HashMap<String, ByteIterator> currentResult = new HashMap<>();
                 for (int j = 0; j < res.getPaths().size(); j++) {
-                    String fieldName = getFieldName(res.getPaths().get(j));
-                    ByteIterator iterator = getByteIterator((byte[]) values.get(j));
+                    String fieldName = CoreUtils.getFieldName(res.getPaths().get(j));
+                    ByteIterator iterator = CoreUtils.getByteIterator((byte[]) values.get(j));
                     currentResult.put(fieldName, iterator);
                 }
                 result.add(currentResult);
@@ -105,7 +104,7 @@ public class Client extends DB {
 
     @Override
     public Status insert(String table, String key, Map<String, ByteIterator> values) {
-        long timestamp = getTimestamp(key);
+        long timestamp = CoreUtils.getTimestamp(key);
         long[] keyList = new long[]{timestamp};
         List<String> pathList = new ArrayList<>();
         List<DataType> dataTypeList = new ArrayList<>();
@@ -114,7 +113,7 @@ public class Client extends DB {
             String fieldName = entry.getKey();
             pathList.add(table + "." + fieldName);
             dataTypeList.add(DataType.BINARY);
-            valueList.add(getValue(entry.getValue()));
+            valueList.add(CoreUtils.getValue(entry.getValue()));
         }
         Object[] rowList = new Object[]{valueList.toArray()};
         try {
@@ -129,7 +128,7 @@ public class Client extends DB {
 
     @Override
     public Status delete(String table, String key) {
-        long timestamp = getTimestamp(key);
+        long timestamp = CoreUtils.getTimestamp(key);
         try {
             session.deleteDataInColumn(table + ".*", timestamp, timestamp + 1);
             return Status.OK;
@@ -138,21 +137,5 @@ public class Client extends DB {
             logger.error(message, e);
             return Status.ERROR;
         }
-    }
-
-    private static long getTimestamp(String key) {
-        return Long.parseLong(key.substring(4));
-    }
-
-    private static String getFieldName(String path) {
-        return path.substring(path.indexOf('.') + 1);
-    }
-
-    private static byte[] getValue(ByteIterator iterator) {
-        return Base64.getEncoder().encode(iterator.toArray());
-    }
-
-    private static ByteIterator getByteIterator(byte[] value) {
-        return new ByteArrayByteIterator(Base64.getDecoder().decode(value));
     }
 }

@@ -1,4 +1,5 @@
 <assembly>
+    <id>release</id>
     <formats>
         <format>dir</format>
         <format>zip</format>
@@ -14,6 +15,11 @@
             <directory>assembly/resources/bin</directory>
             <fileMode>0755</fileMode>
             <outputDirectory>bin</outputDirectory>
+        </fileSet>
+        <fileSet>
+            <directory>assembly/resources/example</directory>
+            <fileMode>0755</fileMode>
+            <outputDirectory>example</outputDirectory>
         </fileSet>
         <fileSet>
             <directory>assembly/resources/workloads</directory>
