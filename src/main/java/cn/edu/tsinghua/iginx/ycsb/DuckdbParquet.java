@@ -29,9 +29,15 @@ public class DuckdbParquet extends Parquet {
 
     public static final String DUCKDB_LOAD_ONLY_DEFAULT = "false";
 
+    public static final String DUCKDB_EXPLAIN = "parquet.duckdb.explain";
+
+    public static final String DUCKDB_EXPLAIN_DEFAULT = "false";
+
     private Connection conn = null;
 
     private boolean loadOnly = false;
+
+    private boolean explain = false;
 
     @Override
     public void init() throws DBException {
@@ -52,6 +58,8 @@ public class DuckdbParquet extends Parquet {
             }
             String loadOnlyString = getProperties().getProperty(DUCKDB_LOAD_ONLY, DUCKDB_LOAD_ONLY_DEFAULT);
             this.loadOnly = Boolean.parseBoolean(loadOnlyString);
+            String explainString = getProperties().getProperty(DUCKDB_EXPLAIN, DUCKDB_EXPLAIN_DEFAULT);
+            this.explain = Boolean.parseBoolean(explainString);
         } catch (Exception e) {
             throw new DBException("failed to init super", e);
         }
@@ -78,12 +86,19 @@ public class DuckdbParquet extends Parquet {
             if (loadOnly) {
                 sql = "DROP TABLE IF EXISTS test; CREATE TABLE test AS " + sql;
             }
+            if (explain) {
+                sql = "EXPLAIN ANALYZE " + sql;
+            }
             try (Statement stmt = conn.createStatement()) {
                 stmt.execute(sql);
                 try (ResultSet rs = stmt.getResultSet()) {
-                    if(rs != null) {
+                    if (rs != null) {
                         ResultSetMetaData rsMetaData = rs.getMetaData();
                         while (rs.next()) {
+                            if (explain) {
+                                logger.info("explain analyze result:\n{}", rs.getString(2));
+                                continue;
+                            }
                             HashMap<String, ByteIterator> map = new HashMap<>();
                             for (int i = 1; i <= rsMetaData.getColumnCount(); i++) {
                                 String parquetFieldName = rsMetaData.getColumnName(i);
