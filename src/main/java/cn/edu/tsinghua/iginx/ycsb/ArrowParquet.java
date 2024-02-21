@@ -1,6 +1,6 @@
 package cn.edu.tsinghua.iginx.ycsb;
 
-import cn.edu.tsinghua.iginx.parquet.entity.Constants;
+import cn.edu.tsinghua.iginx.parquet.shared.Constants;
 import org.apache.arrow.dataset.file.FileFormat;
 import org.apache.arrow.dataset.file.FileSystemDatasetFactory;
 import org.apache.arrow.dataset.jni.NativeMemoryPool;

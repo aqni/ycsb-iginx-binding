@@ -1,6 +1,6 @@
 package cn.edu.tsinghua.iginx.ycsb;
 
-import cn.edu.tsinghua.iginx.parquet.entity.Constants;
+import cn.edu.tsinghua.iginx.parquet.shared.Constants;
 import org.duckdb.DuckDBConnection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,7 +19,7 @@ public class DuckdbParquet extends Parquet {
 
     public static final String DUCKDB_CLOSED_PER_READ = "parquet.duckdb.closed_per_read";
 
-    public static final String UCKDB_CLOSED_PER_READ_DEFAULT = "false";
+    public static final String DUCKDB_CLOSED_PER_READ_DEFAULT = "false";
 
     public static final String DUCKDB_ENABLE_OBJECT_CACHE = "parquet.duckdb.enable_object_cache";
 
@@ -44,7 +44,7 @@ public class DuckdbParquet extends Parquet {
         super.init();
         try {
             Class.forName("org.duckdb.DuckDBDriver");
-            String closedPerRead = getProperties().getProperty(DUCKDB_CLOSED_PER_READ, UCKDB_CLOSED_PER_READ_DEFAULT);
+            String closedPerRead = getProperties().getProperty(DUCKDB_CLOSED_PER_READ, DUCKDB_CLOSED_PER_READ_DEFAULT);
             boolean isClosedPerRead = Boolean.parseBoolean(closedPerRead);
             if (!isClosedPerRead) {
                 conn = createDuckdbConnection();
