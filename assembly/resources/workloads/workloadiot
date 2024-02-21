@@ -3,7 +3,6 @@ workload=site.ycsb.workloads.CoreWorkload
 threadcount=10
 recordcount=50000000
 operationcount=50000000
-insertstart=225000000
 
 readallfields=true
 
@@ -18,3 +17,7 @@ scanlengthdistribution=uniform
 insertorder=ordered
 
 requestdistribution=uniform
+
+# for iginx
+iginx.insertbycolumn=true
+iginx.buffersize=10000

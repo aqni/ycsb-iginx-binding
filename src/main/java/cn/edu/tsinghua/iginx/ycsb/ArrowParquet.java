@@ -19,77 +19,79 @@ import site.ycsb.ByteIterator;
 import site.ycsb.DBException;
 import site.ycsb.Status;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.Set;
+import java.util.Vector;
 
 public class ArrowParquet extends Parquet {
 
-    private static final Logger logger = LoggerFactory.getLogger(ArrowParquet.class);
+  private static final Logger logger = LoggerFactory.getLogger(ArrowParquet.class);
 
-    private String uri;
+  private String uri;
 
-    @Override
-    public void init() throws DBException {
-        super.init();
-        uri = readPath.toUri().toString();
+  @Override
+  public void init() throws DBException {
+    super.init();
+    uri = readPath.toUri().toString();
+  }
+
+  @Override
+  public void cleanup() throws DBException {
+    super.cleanup();
+  }
+
+  @Override
+  protected Status doScan(Set<String> fields, Vector<HashMap<String, ByteIterator>> result, long start, long interval) {
+    if (fields != null) {
+      return Status.NOT_IMPLEMENTED;
     }
-
-    @Override
-    public void cleanup() throws DBException {
-        super.cleanup();
-    }
-
-    @Override
-    protected Status doScan(Set<String> fields, Vector<HashMap<String, ByteIterator>> result, long start, long interval) {
-        if (fields != null) {
-            return Status.NOT_IMPLEMENTED;
-        }
-        ScanOptions options = new ScanOptions.Builder(2048).build();
-        try (
-                BufferAllocator allocator = new RootAllocator();
-                DatasetFactory datasetFactory = new FileSystemDatasetFactory(
-                        allocator, NativeMemoryPool.getDefault(),
-                        FileFormat.PARQUET, uri);
-                Dataset dataset = datasetFactory.finish();
-                Scanner scanner = dataset.newScan(options);
-                ArrowReader reader = scanner.scanBatches()
-        ) {
-            scanner.schema();
-            while (reader.loadNextBatch()) {
-                try (VectorSchemaRoot root = reader.getVectorSchemaRoot()) {
-                    FieldVector keyVector = root.getVector(Constants.KEY_FIELD_NAME);
-                    for (int i = 0; i < root.getRowCount(); i++) {
-                        Object key = keyVector.getObject(i);
-                        if (!(key instanceof Long)) {
-                            throw new DBException("key is not long, but: " + key.getClass().getName());
-                        }
-                        if ((Long) key < start || (Long) key >= start + interval) {
-                            continue;
-                        }
-                        HashMap<String, ByteIterator> map = new HashMap<>();
-                        for (FieldVector fieldVector : root.getFieldVectors()) {
-                            String name = fieldVector.getName();
-                            if (name.equals(Constants.KEY_FIELD_NAME)) {
-                                continue;
-                            }
-                            Object value = fieldVector.getObject(i);
-                            if (!(value instanceof byte[])) {
-                                throw new DBException("value is not byte[], but: " + value.getClass().getName());
-                            }
-                            String ycsbFieldName = CoreUtils.getFieldName(name);
-                            ByteIterator iterator = CoreUtils.getByteIterator((byte[]) value);
-                            map.put(ycsbFieldName, iterator);
-                        }
-                        result.add(map);
-                    }
-                }
+    ScanOptions options = new ScanOptions.Builder(2048).build();
+    try (
+        BufferAllocator allocator = new RootAllocator();
+        DatasetFactory datasetFactory = new FileSystemDatasetFactory(
+            allocator, NativeMemoryPool.getDefault(),
+            FileFormat.PARQUET, uri);
+        Dataset dataset = datasetFactory.finish();
+        Scanner scanner = dataset.newScan(options);
+        ArrowReader reader = scanner.scanBatches()
+    ) {
+      scanner.schema();
+      while (reader.loadNextBatch()) {
+        try (VectorSchemaRoot root = reader.getVectorSchemaRoot()) {
+          FieldVector keyVector = root.getVector(Constants.KEY_FIELD_NAME);
+          for (int i = 0; i < root.getRowCount(); i++) {
+            Object key = keyVector.getObject(i);
+            if (!(key instanceof Long)) {
+              throw new DBException("key is not long, but: " + key.getClass().getName());
             }
-            if (result.isEmpty()) {
-                return Status.NOT_FOUND;
+            if ((Long) key < start || (Long) key >= start + interval) {
+              continue;
             }
-            return Status.OK;
-        } catch (Exception e) {
-            logger.error("failed to scan", e);
-            return Status.ERROR;
+            HashMap<String, ByteIterator> map = new HashMap<>();
+            for (FieldVector fieldVector : root.getFieldVectors()) {
+              String name = fieldVector.getName();
+              if (name.equals(Constants.KEY_FIELD_NAME)) {
+                continue;
+              }
+              Object value = fieldVector.getObject(i);
+              if (!(value instanceof byte[])) {
+                throw new DBException("value is not byte[], but: " + value.getClass().getName());
+              }
+              String ycsbFieldName = CoreUtils.getFieldName(name);
+              ByteIterator iterator = CoreUtils.getByteIterator((byte[]) value);
+              map.put(ycsbFieldName, iterator);
+            }
+            result.add(map);
+          }
         }
+      }
+      if (result.isEmpty()) {
+        return Status.NOT_FOUND;
+      }
+      return Status.OK;
+    } catch (Exception e) {
+      logger.error("failed to scan", e);
+      return Status.ERROR;
     }
+  }
 }

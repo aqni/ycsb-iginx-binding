@@ -31,30 +31,18 @@ import java.util.*;
 
 public class Parquet extends DB {
 
-  private static final Logger logger = LoggerFactory.getLogger(Parquet.class);
-
-  private final DataBuffer<Long, String, Object> writeBuffer = new DataBuffer<>();
-
   public static final String DUMP_FILE_PATH = "parquet.path.dump";
-
   public static final String DUMP_FILE_PATH_DEFAULT = "dump.parquet";
-
   public static final String READ_FILE_PATH = "parquet.path.read";
-
   public static final String READ_FILE_PATH_DEFAULT = "dump.parquet";
-
   public static final String ROW_GROUP_SIZE = "parquet.size.row_group";
-
   public static final String ROW_GROUP_SIZE_DEFAULT = "1048567";
-
   public static final String PAGE_SIZE = "parquet.size.page";
-
   public static final String PAGE_SIZE_DEFAULT = "8388608";
-
   public static final String SCAN_ALL = "parquet.scan.all";
-
   public static final String SCAN_ALL_DEFAULT = "false";
-
+  private static final Logger logger = LoggerFactory.getLogger(Parquet.class);
+  private final DataBuffer<Long, String, Object> writeBuffer = new DataBuffer<>();
   protected Path dumpPath;
 
   protected Path readPath;

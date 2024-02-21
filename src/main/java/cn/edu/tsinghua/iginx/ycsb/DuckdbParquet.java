@@ -15,127 +15,118 @@ import java.util.Vector;
 
 public class DuckdbParquet extends Parquet {
 
-    private static final Logger logger = LoggerFactory.getLogger(DuckdbParquet.class);
+  public static final String DUCKDB_CLOSED_PER_READ = "parquet.duckdb.closed_per_read";
+  public static final String DUCKDB_CLOSED_PER_READ_DEFAULT = "false";
+  public static final String DUCKDB_ENABLE_OBJECT_CACHE = "parquet.duckdb.enable_object_cache";
+  public static final String DUCKDB_ENABLE_OBJECT_CACHE_DEFAULT = "false";
+  public static final String DUCKDB_LOAD_ONLY = "parquet.duckdb.load_only";
+  public static final String DUCKDB_LOAD_ONLY_DEFAULT = "false";
+  public static final String DUCKDB_EXPLAIN = "parquet.duckdb.explain";
+  public static final String DUCKDB_EXPLAIN_DEFAULT = "false";
+  private static final Logger logger = LoggerFactory.getLogger(DuckdbParquet.class);
+  private Connection conn = null;
 
-    public static final String DUCKDB_CLOSED_PER_READ = "parquet.duckdb.closed_per_read";
+  private boolean loadOnly = false;
 
-    public static final String DUCKDB_CLOSED_PER_READ_DEFAULT = "false";
+  private boolean explain = false;
 
-    public static final String DUCKDB_ENABLE_OBJECT_CACHE = "parquet.duckdb.enable_object_cache";
+  private static Connection createDuckdbConnection() throws SQLException {
+    return DriverManager.getConnection("jdbc:duckdb:");
+  }
 
-    public static final String DUCKDB_ENABLE_OBJECT_CACHE_DEFAULT = "false";
+  @Override
+  public void init() throws DBException {
+    super.init();
+    try {
+      Class.forName("org.duckdb.DuckDBDriver");
+      String closedPerRead = getProperties().getProperty(DUCKDB_CLOSED_PER_READ, DUCKDB_CLOSED_PER_READ_DEFAULT);
+      boolean isClosedPerRead = Boolean.parseBoolean(closedPerRead);
+      if (!isClosedPerRead) {
+        conn = createDuckdbConnection();
+      }
+      String enableObjectCache = getProperties().getProperty(DUCKDB_ENABLE_OBJECT_CACHE, DUCKDB_ENABLE_OBJECT_CACHE_DEFAULT);
+      boolean isEnableObjectCache = Boolean.parseBoolean(enableObjectCache);
+      if (conn != null) {
+        try (Statement stmt = conn.createStatement()) {
+          stmt.execute(String.format("SET enable_object_cache = %b;", isEnableObjectCache));
+        }
+      }
+      String loadOnlyString = getProperties().getProperty(DUCKDB_LOAD_ONLY, DUCKDB_LOAD_ONLY_DEFAULT);
+      this.loadOnly = Boolean.parseBoolean(loadOnlyString);
+      String explainString = getProperties().getProperty(DUCKDB_EXPLAIN, DUCKDB_EXPLAIN_DEFAULT);
+      this.explain = Boolean.parseBoolean(explainString);
+    } catch (Exception e) {
+      throw new DBException("failed to init super", e);
+    }
+  }
 
-    public static final String DUCKDB_LOAD_ONLY = "parquet.duckdb.load_only";
+  @Override
+  public void cleanup() throws DBException {
+    super.cleanup();
+    try {
+      conn.close();
+    } catch (SQLException e) {
+      logger.error("failed to close connection", e);
+      throw new DBException("failed to close connection", e);
+    }
+  }
 
-    public static final String DUCKDB_LOAD_ONLY_DEFAULT = "false";
-
-    public static final String DUCKDB_EXPLAIN = "parquet.duckdb.explain";
-
-    public static final String DUCKDB_EXPLAIN_DEFAULT = "false";
-
-    private Connection conn = null;
-
-    private boolean loadOnly = false;
-
-    private boolean explain = false;
-
-    @Override
-    public void init() throws DBException {
-        super.init();
-        try {
-            Class.forName("org.duckdb.DuckDBDriver");
-            String closedPerRead = getProperties().getProperty(DUCKDB_CLOSED_PER_READ, DUCKDB_CLOSED_PER_READ_DEFAULT);
-            boolean isClosedPerRead = Boolean.parseBoolean(closedPerRead);
-            if (!isClosedPerRead) {
-                conn = createDuckdbConnection();
-            }
-            String enableObjectCache = getProperties().getProperty(DUCKDB_ENABLE_OBJECT_CACHE, DUCKDB_ENABLE_OBJECT_CACHE_DEFAULT);
-            boolean isEnableObjectCache = Boolean.parseBoolean(enableObjectCache);
-            if (conn != null) {
-                try (Statement stmt = conn.createStatement()) {
-                    stmt.execute(String.format("SET enable_object_cache = %b;", isEnableObjectCache));
+  @Override
+  protected Status doScan(Set<String> fields, Vector<HashMap<String, ByteIterator>> result, long start, long interval) {
+    if (fields != null) {
+      return Status.NOT_IMPLEMENTED;
+    }
+    try (Connection conn = getDuckdbConnection()) {
+      String sql = String.format("SELECT * FROM read_parquet('%s',binary_as_string=true) WHERE \"*\" >= %d AND \"*\" < %d;", readPath.toString(), start, start + interval);
+      if (loadOnly) {
+        sql = "DROP TABLE IF EXISTS test; CREATE TABLE test AS " + sql;
+      }
+      if (explain) {
+        sql = "EXPLAIN ANALYZE " + sql;
+      }
+      try (Statement stmt = conn.createStatement()) {
+        stmt.execute(sql);
+        try (ResultSet rs = stmt.getResultSet()) {
+          if (rs != null) {
+            ResultSetMetaData rsMetaData = rs.getMetaData();
+            while (rs.next()) {
+              if (explain) {
+                logger.info("explain analyze result:\n{}", rs.getString(2));
+                continue;
+              }
+              HashMap<String, ByteIterator> map = new HashMap<>();
+              for (int i = 1; i <= rsMetaData.getColumnCount(); i++) {
+                String parquetFieldName = rsMetaData.getColumnName(i);
+                if (parquetFieldName.equals(Constants.KEY_FIELD_NAME)) {
+                  continue;
                 }
-            }
-            String loadOnlyString = getProperties().getProperty(DUCKDB_LOAD_ONLY, DUCKDB_LOAD_ONLY_DEFAULT);
-            this.loadOnly = Boolean.parseBoolean(loadOnlyString);
-            String explainString = getProperties().getProperty(DUCKDB_EXPLAIN, DUCKDB_EXPLAIN_DEFAULT);
-            this.explain = Boolean.parseBoolean(explainString);
-        } catch (Exception e) {
-            throw new DBException("failed to init super", e);
-        }
-    }
-
-    @Override
-    public void cleanup() throws DBException {
-        super.cleanup();
-        try {
-            conn.close();
-        } catch (SQLException e) {
-            logger.error("failed to close connection", e);
-            throw new DBException("failed to close connection", e);
-        }
-    }
-
-    @Override
-    protected Status doScan(Set<String> fields, Vector<HashMap<String, ByteIterator>> result, long start, long interval) {
-        if (fields != null) {
-            return Status.NOT_IMPLEMENTED;
-        }
-        try (Connection conn = getDuckdbConnection()) {
-            String sql = String.format("SELECT * FROM read_parquet('%s',binary_as_string=true) WHERE \"*\" >= %d AND \"*\" < %d;", readPath.toString(), start, start + interval);
-            if (loadOnly) {
-                sql = "DROP TABLE IF EXISTS test; CREATE TABLE test AS " + sql;
-            }
-            if (explain) {
-                sql = "EXPLAIN ANALYZE " + sql;
-            }
-            try (Statement stmt = conn.createStatement()) {
-                stmt.execute(sql);
-                try (ResultSet rs = stmt.getResultSet()) {
-                    if (rs != null) {
-                        ResultSetMetaData rsMetaData = rs.getMetaData();
-                        while (rs.next()) {
-                            if (explain) {
-                                logger.info("explain analyze result:\n{}", rs.getString(2));
-                                continue;
-                            }
-                            HashMap<String, ByteIterator> map = new HashMap<>();
-                            for (int i = 1; i <= rsMetaData.getColumnCount(); i++) {
-                                String parquetFieldName = rsMetaData.getColumnName(i);
-                                if (parquetFieldName.equals(Constants.KEY_FIELD_NAME)) {
-                                    continue;
-                                }
-                                String fieldName = CoreUtils.getFieldName(parquetFieldName);
-                                Object value = rs.getObject(i);
-                                if (value == null) {
-                                    continue;
-                                }
-                                ByteIterator byteIterator = CoreUtils.getByteIterator(((String) value).getBytes());
-                                map.put(fieldName, byteIterator);
-                            }
-                            result.add(map);
-                        }
-                    }
+                String fieldName = CoreUtils.getFieldName(parquetFieldName);
+                Object value = rs.getObject(i);
+                if (value == null) {
+                  continue;
                 }
+                ByteIterator byteIterator = CoreUtils.getByteIterator(((String) value).getBytes());
+                map.put(fieldName, byteIterator);
+              }
+              result.add(map);
             }
-            if (result.isEmpty()) {
-                return Status.NOT_FOUND;
-            }
-            return Status.OK;
-        } catch (Exception e) {
-            logger.error("failed to scan", e);
-            return Status.ERROR;
+          }
         }
+      }
+      if (result.isEmpty()) {
+        return Status.NOT_FOUND;
+      }
+      return Status.OK;
+    } catch (Exception e) {
+      logger.error("failed to scan", e);
+      return Status.ERROR;
     }
+  }
 
-    private Connection getDuckdbConnection() throws SQLException {
-        if (conn != null) {
-            return ((DuckDBConnection) conn).duplicate();
-        }
-        return createDuckdbConnection();
+  private Connection getDuckdbConnection() throws SQLException {
+    if (conn != null) {
+      return ((DuckDBConnection) conn).duplicate();
     }
-
-    private static Connection createDuckdbConnection() throws SQLException {
-        return DriverManager.getConnection("jdbc:duckdb:");
-    }
+    return createDuckdbConnection();
+  }
 }
