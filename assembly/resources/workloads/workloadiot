@@ -1,4 +1,4 @@
-workload=com.yahoo.ycsb.workloads.CoreWorkload
+workload=site.ycsb.workloads.CoreWorkload
 
 threadcount=10
 recordcount=50000000
