@@ -12,17 +12,17 @@
     </dependencySets>
     <fileSets>
         <fileSet>
-            <directory>assembly/resources/bin</directory>
+            <directory>src/assembly/resources/bin</directory>
             <fileMode>0755</fileMode>
             <outputDirectory>bin</outputDirectory>
         </fileSet>
         <fileSet>
-            <directory>assembly/resources/example</directory>
+            <directory>src/assembly/resources/example</directory>
             <fileMode>0755</fileMode>
             <outputDirectory>example</outputDirectory>
         </fileSet>
         <fileSet>
-            <directory>assembly/resources/workloads</directory>
+            <directory>src/assembly/resources/workloads</directory>
             <outputDirectory>workloads</outputDirectory>
         </fileSet>
     </fileSets>
